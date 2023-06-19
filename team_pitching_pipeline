@@ -1,3 +1,9 @@
+import pandas as pd
+import snowflake.connector
+from pybaseball import pitching_stats
+from pybaseball import pitching_stats_bref
+from typing_extensions import NamedTuple
+
 # Import pybaseball libraries
 from pybaseball import pitching_stats_bref
 
@@ -6,3 +12,53 @@ def getPitchData2023(year, team):
     pitchingData = pd.DataFrame(pitching_stats_bref(year))
     teamDF = pitchingData[pitchingData['Tm'] == str(team)]
     return(teamDF)
+
+
+# Get the Red Sox pitching data from 2023
+redsox2023PitchData = getPitchData2023('2023', 'Boston')
+
+#Push the redsox pitching dataframe into Snowflake table
+
+# Connect to Snowflake account
+conn = snowflake.connector.connect(
+    user = '<username>',
+    password = '<password>',
+    account = '<account name>',
+    warehouse = '<warehouse name>',
+    database_name = '<database name>',
+    schema_name = '<schema name>'
+)
+
+
+#Create a Snowflake cursor to execute SQL Statements
+cursor = conn.cursor()
+
+
+#Convert your DataFrame to a CSV file
+#redsoxPitchData = redsox2023PitchData.to_csv('redsoxPitchData.csv', index = False)
+
+csv_file_path = 'redsoxPitchData.csv'
+redsox2023PitchData.to_csv(csv_file_path, index = False)
+
+# Create snowflake stage and put csv file into stage
+stage_name = '<stage name>'
+cursor.execute(f"USE DATABASE <database name>")
+cursor.execute(f"USE SCHEMA <schema name>")
+cursor.execute(f"CREATE OR REPLACE STAGE {stage_name}")
+
+
+# Use snowflake PUT command to upload CSV data to the internal stage
+cursor.execute(f"PUT file://{csv_file_path} @{stage_name}")
+
+
+# Load csv file into snowflake table using COPY INTO command
+copy_query = """
+COPY INTO <table name>
+FROM @<stage name>
+FILE_FORMAT = (TYPE = 'CSV')
+"""
+cursor.execute(copy_query)
+
+# Close the cursor and the connection
+cursor.close()
+conn.close()
