@@ -1,0 +1,8 @@
+# Import pybaseball libraries
+from pybaseball import pitching_stats_bref
+
+# Create a function that when called, will product up to date RedSox pitching stats from Baseball Reference
+def getPitchData2023(year, team):
+    pitchingData = pd.DataFrame(pitching_stats_bref(year))
+    teamDF = pitchingData[pitchingData['Tm'] == str(team)]
+    return(teamDF)
